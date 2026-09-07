@@ -32,30 +32,32 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
           if [ -z "$SONAR_TOKEN" ]; then
-            echo "::error::Secret SONAR_TOKEN is not set."
-            echo "Create a token at https://sonarcloud.io → My Account → Security"
-            echo "Then add it under Repo Settings → Secrets and variables → Actions → SONAR_TOKEN"
-            echo "Project key expected: venturalabs-ai_ventura-agents"
-            echo "Organization: venturalabs-ai"
-            exit 1
+            echo "::warning::Secret SONAR_TOKEN is not set. Skipping SonarQube scan."
+            echo "HAS_SONAR_TOKEN=false" >> $GITHUB_ENV
+          else
+            echo "SONAR_TOKEN is configured."
+            echo "HAS_SONAR_TOKEN=true" >> $GITHUB_ENV
           fi
-          echo "SONAR_TOKEN is configured."
 
       - name: Setup Node.js
+        if: env.HAS_SONAR_TOKEN == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: "22"
           cache: npm
 
       - name: Install Node dependencies
+        if: env.HAS_SONAR_TOKEN == 'true'
         run: npm ci
 
       - name: Setup Python
+        if: env.HAS_SONAR_TOKEN == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
       - name: Install Python analysis deps
+        if: env.HAS_SONAR_TOKEN == 'true'
         run: |
           python -m pip install --upgrade pip
           pip install pytest pytest-cov pytest-asyncio pydantic pydantic-settings ruff
@@ -64,12 +66,14 @@ jobs:
           fi
 
       - name: Node typecheck + tests
+        if: env.HAS_SONAR_TOKEN == 'true'
         run: |
           npm run typecheck
           npm test || true
           mkdir -p coverage
 
       - name: Python tests with coverage
+        if: env.HAS_SONAR_TOKEN == 'true'
         run: |
           if [ -d tests ]; then
             pytest tests/ -q \
@@ -81,12 +85,14 @@ jobs:
           fi
 
       - name: SonarQube Scan
+        if: env.HAS_SONAR_TOKEN == 'true'
         uses: SonarSource/sonarqube-scan-action@v5.3.2
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: SonarQube Quality Gate
+        if: env.HAS_SONAR_TOKEN == 'true'
         uses: SonarSource/sonarqube-quality-gate-action@v1.1.0
         timeout-minutes: 8
         env:
