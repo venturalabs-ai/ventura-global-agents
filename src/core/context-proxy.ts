@@ -153,11 +153,17 @@ export class ContextProxy {
     // Use embedding similarity to find top-k relevant evidence
     const messageEmbedding = await this.getEmbedding(message);
     
+    // ⚡ Bolt: Fetched evidence embeddings concurrently using Promise.all to fix N+1 query bottleneck
+    const similarities = await Promise.all(
+      evidence.references.map(async (ref) => {
+        const refEmbedding = await this.getEmbedding(ref.id);
+        const similarity = this.cosineSimilarity(messageEmbedding, refEmbedding);
+        return { ref, similarity };
+      })
+    );
+
     const relevantEvidence = [];
-    for (const ref of evidence.references) {
-      const refEmbedding = await this.getEmbedding(ref.id);
-      const similarity = this.cosineSimilarity(messageEmbedding, refEmbedding);
-      
+    for (const { ref, similarity } of similarities) {
       if (similarity > 0.7) {
         relevantEvidence.push(ref);
       }
