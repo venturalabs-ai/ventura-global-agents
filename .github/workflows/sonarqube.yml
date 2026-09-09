@@ -28,18 +28,17 @@ jobs:
           fetch-depth: 0
 
       - name: Verify SONAR_TOKEN
+        id: check_sonar_token
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
           if [ -z "$SONAR_TOKEN" ]; then
-            echo "::error::Secret SONAR_TOKEN is not set."
-            echo "Create a token at https://sonarcloud.io → My Account → Security"
-            echo "Then add it under Repo Settings → Secrets and variables → Actions → SONAR_TOKEN"
-            echo "Project key expected: venturalabs-ai_ventura-agents"
-            echo "Organization: venturalabs-ai"
-            exit 1
+            echo "::warning::Secret SONAR_TOKEN is not set. Skipping SonarQube verification."
+            echo "has_token=false" >> $GITHUB_OUTPUT
+          else
+            echo "SONAR_TOKEN is configured."
+            echo "has_token=true" >> $GITHUB_OUTPUT
           fi
-          echo "SONAR_TOKEN is configured."
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -81,12 +80,14 @@ jobs:
           fi
 
       - name: SonarQube Scan
+        if: steps.check_sonar_token.outputs.has_token == 'true'
         uses: SonarSource/sonarqube-scan-action@v5.3.2
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: SonarQube Quality Gate
+        if: steps.check_sonar_token.outputs.has_token == 'true'
         uses: SonarSource/sonarqube-quality-gate-action@v1.2.1
         timeout-minutes: 8
         env:
